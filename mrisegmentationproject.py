@@ -47,9 +47,11 @@ print("Image data shape:", image_data.shape)
 import matplotlib.pyplot as plt
 
 # Assuming image_data has shape (height, width, channels)
+channel_titles = ["T1-weighted", "T2-weighted", "FLAIR", "T1-weighted with contrast"]
+
 for channel in range(image_data.shape[2]):
     plt.imshow(image_data[:, :, channel], cmap="gray")
-    plt.title(f"Channel {channel}")
+    plt.title(channel_titles[channel])  # Use the channel title from the list
     plt.show()
 
 plt.imshow(mask_data, cmap="jet", alpha=0.5)
