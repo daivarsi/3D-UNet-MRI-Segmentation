@@ -93,6 +93,3 @@ The model is trained on the BraTS 2020 dataset, which consists of multi-modal MR
 
 Contributions are welcome! Please feel free to submit pull requests or open issues.
 
-## License
-
-This project is licensed under the [MIT License](LICENSE).
