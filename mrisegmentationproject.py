@@ -207,6 +207,8 @@ print(preprocessed_data['mask'].shape)
 print(f'MRI data mean: {np.mean(preprocessed_data["image"])}')
 print(f'MRI data std: {np.std(preprocessed_data["image"])}')
 
+# Simplified Model before Trying Full Model
+
 import tensorflow as tf
 from tensorflow.keras import layers
 
@@ -253,94 +255,355 @@ model.compile(optimizer='adam', loss='binary_crossentropy') #Example loss.
 #Print model summary.
 model.summary()
 
-import numpy as np
+# Advanced Model
+
 import tensorflow as tf
 from tensorflow.keras import layers
-from tensorflow.keras import backend as K
 
-# Mock data (replace with your actual data loading)
-def generate_mock_data(num_volumes, z_dim, y_dim, x_dim, channels):
-    mri_data = np.random.rand(num_volumes, z_dim, y_dim, x_dim, channels).astype(np.float32)
-    mask_data = np.random.randint(0, 2, (num_volumes, z_dim, y_dim, x_dim, 1)).astype(np.float32)
-    return mri_data, mask_data
-
-num_volumes = 10  # Example number of volumes
-z_dim = 152
-y_dim = 240
-x_dim = 240
-channels = 4
-
-mri_data, mask_data = generate_mock_data(num_volumes, z_dim, y_dim, x_dim, channels)
-
-# Split into training and validation sets
-train_ratio = 0.8
-split_index = int(num_volumes * train_ratio)
-
-train_mri = mri_data[:split_index]
-train_mask = mask_data[:split_index]
-val_mri = mri_data[split_index:]
-val_mask = mask_data[split_index:]
-
-# 3D U-Net Model Definition
-def unet_3d(input_shape):
+def build_advanced_3d_unet(input_shape):
     inputs = layers.Input(input_shape)
 
     # Encoder
     conv1 = layers.Conv3D(32, 3, activation='relu', padding='same')(inputs)
     conv1 = layers.Conv3D(32, 3, activation='relu', padding='same')(conv1)
+
+    up_conv1 = layers.Conv3DTranspose(32, 2, strides=(2, 2, 2), padding='same')(conv1) #upsample conv1
+    print(f'up_conv1 shape: {up_conv1.shape}')
+
     pool1 = layers.MaxPooling3D(pool_size=(2, 2, 2))(conv1)
+    print(f"pool1 shape: {pool1.shape}")
 
     conv2 = layers.Conv3D(64, 3, activation='relu', padding='same')(pool1)
     conv2 = layers.Conv3D(64, 3, activation='relu', padding='same')(conv2)
     pool2 = layers.MaxPooling3D(pool_size=(2, 2, 2))(conv2)
+    print(f"pool2 shape: {pool2.shape}")
+
+    up_conv2 = layers.Conv3DTranspose(64, 2, strides=(2, 2, 2), padding='same')(conv2)
+    print(f'up_conv2 shape: {up_conv2.shape}')
 
     conv3 = layers.Conv3D(128, 3, activation='relu', padding='same')(pool2)
     conv3 = layers.Conv3D(128, 3, activation='relu', padding='same')(conv3)
     pool3 = layers.MaxPooling3D(pool_size=(2, 2, 2))(conv3)
+    print(f"pool3 shape: {pool3.shape}")
 
-    # Bottleneck
+    up_conv3 = layers.Conv3DTranspose(128, 2, strides=(2, 2, 2), padding='same')(conv3)
+    print(f'up_conv3 shape: {up_conv3.shape}')
+
     conv4 = layers.Conv3D(256, 3, activation='relu', padding='same')(pool3)
     conv4 = layers.Conv3D(256, 3, activation='relu', padding='same')(conv4)
+    drop4 = layers.Dropout(0.5)(conv4)
+    print(f"drop4 shape: {drop4.shape}")
+
+    up_drop4 = layers.Conv3DTranspose(256, 2, strides=(2, 2, 2), padding='same')(drop4)
+    print(f'up_drop4 shape: {up_drop4.shape}')
+
+    # Bottleneck
+    conv5 = layers.Conv3D(512, 3, activation='relu', padding='same')(drop4)
+    conv5 = layers.Conv3D(512, 3, activation='relu', padding='same')(conv5)
+    drop5 = layers.Dropout(0.5)(conv5)
+    print(f"drop5 shape: {drop5.shape}")
 
     # Decoder
-    up5 = layers.Conv3DTranspose(128, 2, strides=(2, 2, 2), padding='same')(conv4)
-    merge5 = layers.concatenate([up5, conv3], axis=4)
-    conv5 = layers.Conv3D(128, 3, activation='relu', padding='same')(merge5)
-    conv5 = layers.Conv3D(128, 3, activation='relu', padding='same')(conv5)
+    up6 = layers.Conv3DTranspose(256, 2, strides=(2, 2, 2), padding='same')(drop5)
+    print(f"up6 shape: {up6.shape}")
+    conv6 = layers.Conv3D(256, 3, activation='relu', padding='same')(up6)
+    print(f"conv6 shape: {conv6.shape}")
+    merge6 = layers.concatenate([conv6, up_drop4], axis=-1)
+    print(f"merge6 shape: {merge6.shape}")
+    conv6 = layers.Conv3D(256, 3, activation='relu', padding='same')(merge6)
+    conv6 = layers.Conv3D(256, 3, activation='relu', padding='same')(conv6)
 
-    up6 = layers.Conv3DTranspose(64, 2, strides=(2, 2, 2), padding='same')(conv5)
-    merge6 = layers.concatenate([up6, conv2], axis=4)
-    conv6 = layers.Conv3D(64, 3, activation='relu', padding='same')(merge6)
-    conv6 = layers.Conv3D(64, 3, activation='relu', padding='same')(conv6)
+    up7 = layers.Conv3DTranspose(128, 2, strides=(2, 2, 2), padding='same')(conv6)
+    print(f"up7 shape: {up7.shape}")
+    conv7 = layers.Conv3D(128, 3, activation='relu', padding='same')(up7)
+    print(f"conv7 shape: {conv7.shape}")
+    merge7 = layers.concatenate([conv7, up_conv3], axis=-1)
+    print(f"merge7 shape: {merge7.shape}")
+    conv7 = layers.Conv3D(128, 3, activation='relu', padding='same')(merge7)
+    conv7 = layers.Conv3D(128, 3, activation='relu', padding='same')(conv7)
 
-    up7 = layers.Conv3DTranspose(32, 2, strides=(2, 2, 2), padding='same')(conv6)
-    merge7 = layers.concatenate([up7, conv1], axis=4)
-    conv7 = layers.Conv3D(32, 3, activation='relu', padding='same')(merge7)
-    conv7 = layers.Conv3D(32, 3, activation='relu', padding='same')(conv7)
+    up8 = layers.Conv3DTranspose(64, 2, strides=(2, 2, 2), padding='same')(conv7)
+    print(f"up8 shape: {up8.shape}")
+    conv8 = layers.Conv3D(64, 3, activation='relu', padding='same')(up8)
+    print(f"conv8 shape: {conv8.shape}")
+    merge8 = layers.concatenate([conv8, up_conv2], axis=-1)
+    print(f"merge8 shape: {merge8.shape}")
+    conv8 = layers.Conv3D(64, 3, activation='relu', padding='same')(merge8)
+    conv8 = layers.Conv3D(64, 3, activation='relu', padding='same')(conv8)
+
+    up9 = layers.Conv3DTranspose(32, 2, strides=(2, 2, 2), padding='same')(conv8)
+    print(f"up9 shape: {up9.shape}")
+    conv9 = layers.Conv3D(32, 3, activation='relu', padding='same')(up9)
+    print(f"conv9 shape: {conv9.shape}")
+    merge9 = layers.concatenate([conv9, up_conv1], axis=-1)
+    print(f"merge9 shape: {merge9.shape}")
+    conv9 = layers.Conv3D(32, 3, activation='relu', padding='same')(merge9)
+    conv9 = layers.Conv3D(32, 3, activation='relu', padding='same')(conv9)
+
+    conv10 = layers.Conv3D(1, 1, activation='sigmoid')(conv9)
+
+    model = tf.keras.Model(inputs=inputs, outputs=conv10)
+    return model
+
+# Example usage
+input_shape = (152, 240, 240, 4)
+model = build_advanced_3d_unet(input_shape)
+model.compile(optimizer='adam', loss='binary_crossentropy')
+model.summary()
+
+import tensorflow as tf
+from tensorflow.keras import layers
+
+def build_advanced_3d_unet(input_shape):
+    inputs = layers.Input(input_shape)
+
+    # Encoder
+    conv1 = layers.Conv3D(32, 3, activation='relu', padding='same')(inputs)
+    conv1 = layers.Conv3D(32, 3, activation='relu', padding='same')(conv1)
+
+    up_conv1 = layers.Conv3DTranspose(32, 2, strides=(1, 1, 1), padding='same')(conv1) #Change Strides.
+    print(f'up_conv1 shape: {up_conv1.shape}')
+
+    pool1 = layers.MaxPooling3D(pool_size=(2, 2, 2))(conv1)
+    print(f"pool1 shape: {pool1.shape}")
+
+    conv2 = layers.Conv3D(64, 3, activation='relu', padding='same')(pool1)
+    conv2 = layers.Conv3D(64, 3, activation='relu', padding='same')(conv2)
+    pool2 = layers.MaxPooling3D(pool_size=(2, 2, 2))(conv2)
+    print(f"pool2 shape: {pool2.shape}")
+
+    up_conv2 = layers.Conv3DTranspose(64, 2, strides=(2, 2, 2), padding='same')(conv2)
+    print(f'up_conv2 shape: {up_conv2.shape}')
+
+    conv3 = layers.Conv3D(128, 3, activation='relu', padding='same')(pool2)
+    conv3 = layers.Conv3D(128, 3, activation='relu', padding='same')(conv3)
+    pool3 = layers.MaxPooling3D(pool_size=(2, 2, 2))(conv3)
+    print(f"pool3 shape: {pool3.shape}")
+
+    up_conv3 = layers.Conv3DTranspose(128, 2, strides=(2, 2, 2), padding='same')(conv3)
+    print(f'up_conv3 shape: {up_conv3.shape}')
+
+    conv4 = layers.Conv3D(256, 3, activation='relu', padding='same')(pool3)
+    conv4 = layers.Conv3D(256, 3, activation='relu', padding='same')(conv4)
+    drop4 = layers.Dropout(0.5)(conv4)
+    print(f"drop4 shape: {drop4.shape}")
+
+    up_drop4 = layers.Conv3DTranspose(256, 2, strides=(2, 2, 2), padding='same')(drop4)
+    print(f'up_drop4 shape: {up_drop4.shape}')
+
+    # Bottleneck
+    conv5 = layers.Conv3D(512, 3, activation='relu', padding='same')(drop4)
+    conv5 = layers.Conv3D(512, 3, activation='relu', padding='same')(conv5)
+    drop5 = layers.Dropout(0.5)(conv5)
+    print(f"drop5 shape: {drop5.shape}")
+
+    # Decoder
+    up6 = layers.Conv3DTranspose(256, 2, strides=(2, 2, 2), padding='same')(drop5)
+    print(f"up6 shape: {up6.shape}")
+    conv6 = layers.Conv3D(256, 3, activation='relu', padding='same')(up6)
+    print(f"conv6 shape: {conv6.shape}")
+    merge6 = layers.concatenate([conv6, up_drop4], axis=-1)
+    print(f"merge6 shape: {merge6.shape}")
+    conv6 = layers.Conv3D(256, 3, activation='relu', padding='same')(merge6)
+    conv6 = layers.Conv3D(256, 3, activation='relu', padding='same')(conv6)
+
+    up7 = layers.Conv3DTranspose(128, 2, strides=(2, 2, 2), padding='same')(conv6)
+    print(f"up7 shape: {up7.shape}")
+    conv7 = layers.Conv3D(128, 3, activation='relu', padding='same')(up7)
+    print(f"conv7 shape: {conv7.shape}")
+    merge7 = layers.concatenate([conv7, up_conv3], axis=-1)
+    print(f"merge7 shape: {merge7.shape}")
+    conv7 = layers.Conv3D(128, 3, activation='relu', padding='same')(merge7)
+    conv7 = layers.Conv3D(128, 3, activation='relu', padding='same')(conv7)
+
+    up8 = layers.Conv3DTranspose(64, 2, strides=(2, 2, 2), padding='same')(conv7)
+    print(f"up8 shape: {up8.shape}")
+    conv8 = layers.Conv3D(64, 3, activation='relu', padding='same')(up8)
+    print(f"conv8 shape: {conv8.shape}")
+    merge8 = layers.concatenate([conv8, up_conv2], axis=-1)
+    print(f"merge8 shape: {merge8.shape}")
+    conv8 = layers.Conv3D(64, 3, activation='relu', padding='same')(merge8)
+    conv8 = layers.Conv3D(64, 3, activation='relu', padding='same')(conv8)
+
+    up9 = layers.Conv3DTranspose(32, 2, strides=(1, 1, 1), padding='same')(conv8)
+    print(f"up9 shape: {up9.shape}")
+    conv9 = layers.Conv3D(32, 3, activation='relu', padding='same')(up9)
+    print(f"conv9 shape: {conv9.shape}")
+    merge9 = layers.concatenate([conv9, up_conv1], axis=-1)
+    print(f"merge9 shape: {merge9.shape}")
+    conv9 = layers.Conv3D(32, 3, activation='relu', padding='same')(merge9)
+    conv9 = layers.Conv3D(32, 3, activation='relu', padding='same')(conv9)
+
+    conv10 = layers.Conv3D(1, 1, activation='sigmoid')(conv9)
+
+    model = tf.keras.Model(inputs=inputs, outputs=conv10)
+    return model
+
+# ========== GPU CONFIGURATION ==========
+import tensorflow as tf
+import numpy as np
+import h5py
+import os
+import random
+from tensorflow.keras import layers, Model, backend as K
+import matplotlib.pyplot as plt
+
+# Verify GPU availability
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Set memory growth to prevent OOM errors
+        tf.config.experimental.set_memory_growth(gpus[0], True)
+        print(f"GPU detected: {gpus[0]}")
+        # Use float32 for maximum compatibility
+        tf.keras.mixed_precision.set_global_policy('float32')
+    except RuntimeError as e:
+        print("GPU configuration error:", e)
+else:
+    print("No GPU detected, using CPU")
+
+# ========== FIXED DATA GENERATOR ==========
+def data_generator(data_dir, volume_ids, patch_size=(64, 64, 64), batch_size=2, validation=False):
+    """Generates 3D patches with size validation and error handling."""
+
+    def generator():
+        while True:
+            batch_images = []
+            batch_masks = []
+            file_list = [f for f in os.listdir(data_dir)
+                        if f.endswith('.h5') and any(f'volume_{vid}_' in f for vid in volume_ids)]
+
+            if not file_list:
+                raise ValueError(f"No matching files found in {data_dir}")
+
+            random.shuffle(file_list)
+
+            for file_name in file_list:
+                try:
+                    with h5py.File(os.path.join(data_dir, file_name), 'r') as hf:
+                        image = np.array(hf['image'], dtype=np.float32)
+                        mask = np.array(hf['mask'][..., 0], dtype=np.float32)
+
+                        # Skip slices smaller than patch size
+                        if any(image.shape[i] < patch_size[i] for i in range(3)):
+                            continue
+
+                        # Get patch coordinates
+                        if validation:
+                            z, y, x = [(s - ps) // 2 for s, ps in zip(image.shape[:3], patch_size)]
+                        else:
+                            z = random.randint(0, image.shape[0] - patch_size[0])
+                            y = random.randint(0, image.shape[1] - patch_size[1])
+                            x = random.randint(0, image.shape[2] - patch_size[2])
+
+                        # Extract patches
+                        img_patch = image[z:z+patch_size[0], y:y+patch_size[1], x:x+patch_size[2]]
+                        mask_patch = mask[z:z+patch_size[0], y:y+patch_size[1], x:x+patch_size[2]]
+
+                        # Channel-wise normalization
+                        for c in range(4):  # For all 4 MRI channels
+                            channel = img_patch[..., c]
+                            img_patch[..., c] = (channel - np.mean(channel)) / (np.std(channel) + 1e-8)
+
+                        batch_images.append(img_patch)
+                        batch_masks.append(mask_patch[..., np.newaxis])
+
+                        if len(batch_images) == batch_size:
+                            yield (tf.convert_to_tensor(np.stack(batch_images),
+                                   tf.convert_to_tensor(np.stack(batch_masks)))
+                            batch_images = []
+                            batch_masks = []
+
+                except Exception as e:
+                    print(f"Skipping {file_name}: {str(e)}")
+                    continue
+
+    return tf.data.Dataset.from_generator(
+        generator,
+        output_signature=(
+            tf.TensorSpec(shape=(None, *patch_size, 4), dtype=tf.float32),
+            tf.TensorSpec(shape=(None, *patch_size, 1), dtype=tf.float32)
+        )
+    )
+
+# ========== MODEL ARCHITECTURE ==========
+def build_3d_unet(input_shape=(64, 64, 64, 4)):
+    inputs = layers.Input(input_shape, dtype=tf.float32)
+
+    # Encoder
+    def conv_block(x, filters):
+        x = layers.Conv3D(filters, 3, activation='relu', padding='same')(x)
+        return layers.Conv3D(filters, 3, activation='relu', padding='same')(x)
+
+    conv1 = conv_block(inputs, 32)
+    pool1 = layers.MaxPooling3D(2)(conv1)
+
+    conv2 = conv_block(pool1, 64)
+    pool2 = layers.MaxPooling3D(2)(conv2)
+
+    conv3 = conv_block(pool2, 128)
+    pool3 = layers.MaxPooling3D(2)(conv3)
+
+    # Bottleneck
+    conv4 = conv_block(pool3, 256)
+    drop4 = layers.Dropout(0.5)(conv4)
+
+    # Decoder
+    def upsample_block(x, skip, filters):
+        x = layers.Conv3DTranspose(filters, 2, strides=2, padding='same')(x)
+        x = layers.concatenate([x, skip])
+        return conv_block(x, filters)
+
+    up5 = upsample_block(drop4, conv3, 128)
+    up6 = upsample_block(up5, conv2, 64)
+    up7 = upsample_block(up6, conv1, 32)
 
     # Output
-    outputs = layers.Conv3D(1, 1, activation='sigmoid')(conv7)
+    outputs = layers.Conv3D(1, 1, activation='sigmoid', dtype=tf.float32)(up7)
 
-    return tf.keras.Model(inputs=inputs, outputs=outputs)
+    return Model(inputs=inputs, outputs=outputs)
 
-# Dice Loss and Dice Coefficient
-def dice_coefficient(y_true, y_pred, smooth=1e-6):
-    y_true_f = K.flatten(y_true)
-    y_pred_f = K.flatten(y_pred)
-    intersection = K.sum(y_true_f * y_pred_f)
-    return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
+# ========== TRAINING SETUP ==========
+def train_model():
+    # Build model
+    model = build_3d_unet()
+    model.compile(
+        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+        loss='binary_crossentropy',
+        metrics=['accuracy']
+    )
 
-def dice_loss(y_true, y_pred):
-    return 1 - dice_coefficient(y_true, y_pred)
+    # Data setup
+    data_dir = '/content/drive/MyDrive/archive/BraTS2020_training_data/content/data/'
+    train_volumes = ['1', '2', '3']
+    val_volumes = ['4']
 
-# Model Compilation
-input_shape = (z_dim, y_dim, x_dim, channels)
-model = unet_3d(input_shape)
-model.compile(optimizer='adam', loss=dice_loss, metrics=[dice_coefficient])
+    train_ds = data_generator(data_dir, train_volumes, batch_size=2).prefetch(tf.data.AUTOTUNE)
+    val_ds = data_generator(data_dir, val_volumes, batch_size=1, validation=True).prefetch(tf.data.AUTOTUNE)
 
-# Model Training
-history = model.fit(train_mri, train_mask, validation_data=(val_mri, val_mask), epochs=10, batch_size=2)
+    # Callbacks
+    callbacks = [
+        tf.keras.callbacks.ModelCheckpoint('best_model.h5', save_best_only=True),
+        tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3),
+        tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5)
+    ]
 
-# Model Evaluation
-evaluation = model.evaluate(val_mri, val_mask)
-print(f"Validation loss: {evaluation[0]}, Validation Dice: {evaluation[1]}")
+    # Train
+    history = model.fit(
+        train_ds,
+        validation_data=val_ds,
+        epochs=50,
+        steps_per_epoch=100,
+        validation_steps=20,
+        callbacks=callbacks
+    )
+
+    return model, history
+
+# ========== EXECUTION ==========
+print("Starting training...")
+try:
+    model, history = train_model()
+    print("Training completed successfully!")
+except Exception as e:
+    print("Training failed:", str(e))
