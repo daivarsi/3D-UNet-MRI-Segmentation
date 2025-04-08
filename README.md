@@ -12,6 +12,34 @@ This repository contains:
 * **Data Generator:** A robust data generator for efficient patch extraction and data normalization.
 * **Training and Validation:** Code for training the model with callbacks for checkpointing, learning rate reduction, and early stopping.
 
+## Development Process (SDLC)
+
+This project is being developed with a structured approach based on the Software Development Life Cycle:
+
+**1. Planning and Requirements Gathering:**
+* Objective: Develop an AI pipeline to accurately segment brain tumors in 3D MRI scans from the BraTS 2020 dataset.
+* Stakeholders: Myself (as the developer/researcher).
+* Requirements: Input of BraTS MRI scans, output of segmented tumor regions, use of Python and a U-Net architecture.
+
+**2. Design:**
+* System Architecture: Data Input -> Preprocessing -> 3D U-Net Model -> Segmentation Output -> Visualization.
+* Model Design: Implementation of a 3D U-Net architecture.
+
+**3. Development (or Implementation):**
+* Coding Python scripts for data handling, model, and training.
+* Utilizing Git and GitHub for version control.
+
+**4. Testing (Current Status):**
+* Unit testing is planned for individual functions (e.g., preprocessing steps).
+* Integration testing is ongoing as the pipeline is built.
+* System testing (model evaluation) is pending successful training.
+
+**5. Deployment:**
+* Code and potentially trained models will be made available on GitHub.
+
+**6. Maintenance:**
+* Ongoing bug fixing and consideration of future improvements.
+
 ## Dataset
 
 The model is trained on the BraTS 2020 dataset, which consists of multi-modal MRI scans and corresponding tumor segmentation masks. You will need to download the dataset and place it in the specified directory: `/content/drive/MyDrive/archive/BraTS2020_training_data/content/data/`.
